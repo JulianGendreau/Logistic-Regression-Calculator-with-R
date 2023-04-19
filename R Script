@@ -1,0 +1,97 @@
+
+library(shiny)
+library(base64)
+library(rsconnect)
+library(shinythemes)
+
+ui <- fluidPage(
+  
+  titlePanel("Surgical Outcomes After Posterior Spinal Fusion in Trauma"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("Elderly2", 
+                  "Select patient age",
+                  choices=
+                    list(
+                      "Age greater than or equal to 65"=1,
+                      "Age less than 65"=0),
+                      selected=0),
+      selectInput("Race", 
+                  "Select Patient Race",
+                  choices=
+                    list(
+                      "Black"=1,
+                      "White"=0),
+                  selected=0),
+      selectInput("Sex","Select sex",
+                   choices=
+                    list(
+                      "Male"=1,
+                      "Female"=0),
+                   selected=1),
+       selectInput("Obese","Select obesity",
+                   choices=
+                     list(
+                       "Obese"=1,
+                       "Not obese"=0),
+                       selected=0),
+      selectInput("diabetes","Select diabetes status",
+                  choices=
+                    list(
+                      "Diabetic"=1,
+                      "Not diabetic"=0),
+                  selected=0),
+      selectInput("activecan","Select cancer status",
+                  choices=
+                    list(
+                      "Comorbid cancer"=1,
+                      "No comorbid cancer"=0),
+                  selected=0),
+      selectInput("Woundvac",
+                    "Select wound vacuum",
+                  choices=
+                    list(
+                      "Wound vacuum"=1,
+                      "No wound vacuum"=0),
+                      selected=1),
+    selectInput("Four","Levels of fusion",
+                choices=
+                  list(
+                    "Five or more levels of fusion"=1,
+                    "Four or less levels of fusion"=0),
+                selected=0)),
+              mainPanel(
+                tabsetPanel(type="tabs",
+                            tabPanel("Disclaimer",'The following calculator was created on a retrospective cohort of 264 patients undergoing posterior spinal fusion at the University of Florida Trauma Center. This calculator has not been externally validated. Please use with caution. Ultimately, the treating neurosurgeon is responsible for optimizing patient care and appropriate clinical decision making.  
+                            
+                                     This model utilizes logistic regression models to derive probability output. This calculator was rated with the following c-statistic on a local dataset: Infection 0.749, Readmission 0.796, Return to OR 0.805. All VIF parameters are measured <5 without colinearity. No local testing dataset. No outer institutional testing dataset.'),
+                            tabPanel("Calculator Output",tableOutput("logit_table")))
+              )         
+       )
+)
+
+server <- function(input, output) {
+    
+    Infe <- readRDS("Infe.rds")
+    Read <- readRDS("Read.rds")
+    ReturnO <- readRDS("ReturnO.rds")
+  
+    finalmodel <- reactive({
+       data.frame(
+         'Result' = c("Probability (%) of Infection","Probability (%) of Hospital Readmission","Probability (%) of Return to Operating Room"),
+         'Output' = c(predict(Infe,data.frame(Elderly2=as.integer(input$Elderly2),Sex=as.integer(input$Sex),Race=as.integer(input$Race),activecan=as.integer(input$activecan),Obese=as.integer(input$Obese),Woundvac=as.integer(input$Woundvac),Four=as.integer(input$Four)),type="response")*100,
+                      predict(Read,data.frame(Woundvac=as.integer(input$Woundvac),Obese=as.integer(input$Obese),Four=as.integer(input$Four),diabetes=as.integer(input$diabetes),activecan=as.integer(input$activecan),Race=as.integer(input$Race)),type="response")*100,
+                      predict(ReturnO,data.frame(Woundvac=as.integer(input$Woundvac),Obese=as.integer(input$Obese),Four=as.integer(input$Four),diabetes=as.integer(input$diabetes),activecan=as.integer(input$activecan)),type="response")*100)
+    )})
+   
+    output$logit_table <- renderTable({
+          finalmodel()
+        
+    })  
+ }
+  
+shinyApp(ui=ui, server = server)
+  
+                     
+        
