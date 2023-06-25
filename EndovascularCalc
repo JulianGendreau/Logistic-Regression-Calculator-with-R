@@ -1,0 +1,98 @@
+library(shiny)
+library(base64)
+library(rsconnect)
+library(shinythemes)
+
+ui <- fluidPage(
+  
+  titlePanel("Probability of Achieving Occlusion After Endovascular Treatment of Intracranial Aneurysms"),
+  sidebarLayout(
+      sidebarPanel(
+        selectInput("HHG", 
+                    "Hunt & Hess Scale Score",
+                    choices=
+                      list(
+                        ">=4"=1,
+                        "<4"=0),
+                    selected=0),
+        sliderInput("Age", label = "Age", value = 60,
+                    min = 13,
+                    max = 101
+        ),
+        sliderInput("Maxdiameter", label = "Maximum Diameter of Aneurysm", value = 5,
+                    min = 2,
+                    max = 21
+        ),
+        selectInput("Male", 
+                    "Select Patient Sex",
+                    choices=
+                      list(
+                        "Male"=1,
+                        "Female"=0),
+                    selected=1),
+        selectInput("PresentationRupturedaneurysm","Ruptured Upon Presentation?",
+                    choices=
+                      list(
+                        "Yes"=1,
+                        "No"=0),
+                    selected=0),
+        selectInput("Bifurcation","Is the Aneurysm Bifurcated?",
+                    choices=
+                      list(
+                        "Yes"=1,
+                        "No"=0),
+                    selected=0),
+        selectInput("Multipleaneurysms","Are their Multiple Aneurysms?",
+                    choices=
+                      list(
+                        "Yes"=1,
+                        "No"=0),
+                    selected=0),
+        selectInput("Daughtersac","Is their a Daughter Sac?",
+                    choices=
+                      list(
+                        "Yes"=1,
+                        "No"=0),
+                    selected=0),
+        selectInput("FemoralAccess",
+                    "Femoral Access?",
+                    choices=
+                      list(
+                        "Yes"=1,
+                        "No"=0),
+                    selected=1),
+        selectInput("Adjunctdevice","Was an Adjunct Device Used? (Device Type Includes coiling, balloon, stent, SAC and FD)",
+                    choices=
+                      list(
+                        "Yes"=1,
+                        "No"=0),
+                    selected=0)),
+      mainPanel(
+        tabsetPanel(type="tabs",
+                    tabPanel("Disclaimer",'Created by Julian Gendreau MD and Basel Musmar BS. The following calculator was created on a retrospective cohort of 358 patients undergoing endovascular treatment of intracranial aneurysms from 38 centers across the United States. Please use with caution. Ultimately, the treating neurosurgeon is responsible for optimizing patient care and appropriate clinical decision making.  
+                            
+                                     This model utilizes logistic and linear regression models to derive probability output for endovascular occlusion. Endovascular occlusion was defined as Raymond-Roy classification 1 or 2. Raymond-Roy classification 3 was considered not occluded.This calculator was rated with the following c-statistic: 0.704. All VIF parameters are measured <5 without colinearity.'),
+                    tabPanel("Calculator Output",tableOutput("logit_table")))
+      )         
+    )
+  )
+  
+  server <- function(input, output) {
+    
+    ASTJU <- readRDS("ASTJU7.rds")
+   
+    
+    finalmodel <- reactive({
+      data.frame(
+        'Result' = c("Probability (%) of Achieving Occlusion"),
+        'Output' = c(predict(ASTJU,data.frame(Male=as.integer(input$Male),HHG=as.integer(input$HHG),Maxdiameter=as.numeric(input$Maxdiameter),Age=as.numeric(input$Age),PresentationRupturedaneurysm=as.integer(input$PresentationRupturedaneurysm),Bifurcation=as.character(input$Bifurcation),Multipleaneurysms=as.integer(input$Multipleaneurysms),Daughtersac=as.integer(input$Daughtersac),FemoralAccess=as.integer(input$FemoralAccess),Adjunctdevice=as.integer(input$Adjunctdevice)),type="response")*100)
+      )})
+    
+    output$logit_table <- renderTable({
+      finalmodel()
+      
+    })  
+  }
+  
+  shinyApp(ui=ui, server = server)
+  
